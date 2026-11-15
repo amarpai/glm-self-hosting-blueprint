@@ -1,0 +1,38 @@
+# One GLM-5.3 replica on one 8x B200 node, plus the router.
+# Illustrative: verify the model ID, quantised checkpoint and engine flags
+# against the official GLM model card and your serving engine's docs.
+services:
+  glm:
+    image: lmsysorg/sglang:latest   # pin an exact tag in production
+    command: >
+      python3 -m sglang.launch_server
+        --model-path ${GLM_CHECKPOINT:-zai-org/GLM-5.3-FP4}
+        --served-model-name glm-5.3
+        --tp-size 8
+        --context-length 262144
+        --mem-fraction-static 0.88
+        --enable-metrics
+        --host 0.0.0.0 --port 30000
+    # Prefix (radix) caching is on by default in SGLang; keep it on.
+    ipc: host
+    shm_size: 64g
+    volumes:
+      - ${HF_HOME:-/models}:/root/.cache/huggingface
+    ports: ["30000:30000"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 8, capabilities: [gpu] }]
+
+  router:
+    image: python:3.12-slim
+    working_dir: /app
+    command: sh -c "pip install -q fastapi uvicorn httpx && uvicorn router.router:app --host 0.0.0.0 --port 8080"
+    environment:
+      GLM_REPLICAS: http://glm:30000      # comma-separate one URL per node
+      VISION_URL: ${VISION_URL}
+      VISION_MODEL: ${VISION_MODEL}
+      VISION_API_KEY: ${VISION_API_KEY}
+    volumes: [".:/app"]
+    ports: ["8080:8080"]
+    depends_on: [glm]
