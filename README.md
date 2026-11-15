@@ -49,6 +49,16 @@ Why each piece matters:
    pay per token only for the rare vision request.
 5. **Measure cost per million tokens**, not GPU utilisation alone.
 
+## Architecture diagrams (LinkedIn-ready)
+
+[`docs/architecture.html`](docs/architecture.html) has seven SVG diagrams: business context,
+data flow, processing pipeline, system architecture, cost levers and an adoption playbook.
+They're exported at LinkedIn's 4:5 size (1080 × 1350) to
+[`docs/linkedin/`](docs/linkedin/): one PNG per slide, plus
+`glm-architecture-carousel.pdf` to upload as a LinkedIn document (carousel) post.
+
+![System architecture](docs/linkedin/slide-5-system.png)
+
 ## Repo layout
 
 ```

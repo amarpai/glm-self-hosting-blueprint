@@ -1,0 +1,534 @@
+<title>GLM Self-Hosting Blueprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a single reading column; each slide is a 4:5 LinkedIn carousel card drawn as SVG.
+   Slides keep one deliberate dark look so the exported PNG/PDF matches the page. */
+:root {
+  --bg: #F3F5F7; --fg: #13202A; --muted: #51636F; --line: #D5DDE3; --accent: #1F6FD1; --card: #FFFFFF;
+  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* slide palette (fixed) */
+  --s-bg: #0F1A22; --s-panel: #172630; --s-line: #2E4250; --s-ink: #EEF3F6; --s-muted: #9DB0BC;
+  --s-own: #5AA9FF; --s-own-tint: #14304A; --s-ext: #FF9B5C; --s-ext-tint: #36231A; --s-amber: #FFD27A;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0B1217; --fg: #E6EDF2; --muted: #93A6B3; --line: #24323C; --accent: #6FB2FF; --card: #121C23; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #0B1217; --fg: #E6EDF2; --muted: #93A6B3; --line: #24323C; --accent: #6FB2FF; --card: #121C23; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 48px 72px; }
+.wrap { max-width: 680px; margin: 0 auto; display: grid; gap: 40px; }
+header { display: grid; gap: 12px; }
+.eyebrow { font: 600 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 clamp(30px, 6vw, 44px)/1.1 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 600 22px/1.25 var(--display); margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 65ch; }
+.muted { color: var(--muted); }
+.kit { display: grid; gap: 12px; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 20px; }
+.kit ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+code { font: 500 .9em var(--mono); }
+figure { margin: 0; display: grid; gap: 10px; }
+figure svg { width: 100%; height: auto; display: block; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.10); }
+figcaption { font-size: 14px; color: var(--muted); }
+figcaption b { color: var(--fg); font-weight: 600; }
+.sources { display: grid; gap: 8px; font-size: 14px; }
+.sources ul { margin: 0; padding-left: 20px; }
+a { color: var(--accent); }
+
+/* SVG slide typography */
+.s-bg { fill: var(--s-bg); }
+.t-eye { font: 700 24px var(--mono); letter-spacing: .1em; fill: var(--s-amber); }
+.t-title { font: 700 58px var(--display); fill: var(--s-ink); }
+.t-hero { font: 700 70px var(--display); fill: var(--s-ink); }
+.t-sub { font: 400 30px var(--body); fill: var(--s-muted); }
+.t-h { font: 600 30px var(--display); fill: var(--s-ink); }
+.t-hs { font: 600 26px var(--display); fill: var(--s-ink); }
+.t-b { font: 400 24px var(--body); fill: var(--s-muted); }
+.t-s { font: 400 21px var(--body); fill: var(--s-muted); }
+.t-num { font: 700 88px var(--mono); fill: var(--s-amber); }
+.t-n { font: 700 26px var(--mono); fill: var(--s-bg); }
+.t-tag { font: 600 21px var(--body); fill: var(--s-amber); }
+.t-lab { font: 600 21px var(--mono); letter-spacing: .06em; fill: var(--s-muted); }
+.t-foot { font: 500 20px var(--mono); fill: var(--s-muted); }
+.t-url { font: 700 27px var(--mono); fill: var(--s-own); }
+.bx { fill: var(--s-panel); stroke: var(--s-line); stroke-width: 2; }
+.own { fill: var(--s-own-tint); stroke: var(--s-own); stroke-width: 2.5; }
+.ext { fill: var(--s-ext-tint); stroke: var(--s-ext); stroke-width: 2.5; stroke-dasharray: 10 7; }
+.ln { stroke: var(--s-muted); stroke-width: 3; fill: none; }
+.ln-own { stroke: var(--s-own); stroke-width: 3; fill: none; }
+.ln-ext { stroke: var(--s-ext); stroke-width: 3; fill: none; stroke-dasharray: 10 7; }
+.ln-dash { stroke: var(--s-muted); stroke-width: 2; fill: none; stroke-dasharray: 4 8; }
+.ln-amb { stroke: var(--s-amber); stroke-width: 3; fill: none; stroke-dasharray: 10 7; }
+.rule { stroke: var(--s-line); stroke-width: 2; }
+.dot { fill: var(--s-amber); }
+.gpu { fill: var(--s-own); }
+.ex { fill: var(--s-line); }
+.ex-on { fill: var(--s-amber); }
+.ex-sh { fill: var(--s-own); }
+.w-own { fill: var(--s-own); }
+.w-ext { fill: var(--s-ext); }
+.w-mut { fill: var(--s-line); }
+.f-amb { fill: var(--s-amber); }
+.f-own { fill: var(--s-own); }
+.f-ext { fill: var(--s-ext); }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9DB0BC"/></marker>
+    <marker id="ah-own" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5AA9FF"/></marker>
+    <marker id="ah-ext" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#FF9B5C"/></marker>
+    <marker id="ah-amb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#FFD27A"/></marker>
+  </defs>
+</svg>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Architecture diagrams · LinkedIn carousel</div>
+  <h1>Self-hosting GLM-5.3 the way Revolut did</h1>
+  <p class="muted">Seven 1080 × 1350 slides for the <a href="https://github.com/amarpai/glm-self-hosting-blueprint">glm-self-hosting-blueprint</a> repo. They cover the business context, the request data flow, the processing pipeline inside one replica, the full system, the cost levers, and a playbook for other companies.</p>
+</header>
+
+<section class="kit" aria-labelledby="kit-h">
+  <h2 id="kit-h">Posting on LinkedIn</h2>
+  <ul>
+    <li>Upload <code>docs/linkedin/glm-architecture-carousel.pdf</code> as a <b>document</b> post. LinkedIn shows it as a swipeable carousel.</li>
+    <li>Single-image post: use <code>slide-1-cover.png</code> or <code>slide-5-system.png</code>. The 4:5 portrait size takes up the most room in the mobile feed.</li>
+    <li>Give the document a title, for example “How Revolut cut AI coding costs ~90%”. It shows above the carousel.</li>
+    <li>Paste each slide's caption below as its alt text.</li>
+  </ul>
+</section>
+
+<!-- ============ SLIDE 1: COVER ============ -->
+<figure id="slide-1">
+<svg viewBox="0 0 1080 1350" role="img" aria-labelledby="s1t">
+  <title id="s1t">Cover: How Revolut cut its AI coding bill by about 90 percent</title>
+  <rect class="s-bg" width="1080" height="1350"/>
+  <text class="t-eye" x="80" y="130">CASE STUDY · SELF-HOSTED LLM INFERENCE</text>
+  <text class="t-hero" x="80" y="260">How Revolut cut its</text>
+  <text class="t-hero" x="80" y="345">AI coding bill by ~90%</text>
+  <text class="t-sub" x="80" y="430">Open-weight GLM-5.3 on 56 NVIDIA B200 GPUs,</text>
+  <text class="t-sub" x="80" y="474">serving ~2,000 engineers.</text>
+
+  <rect class="bx" x="80" y="560" width="450" height="230" rx="14"/>
+  <text class="t-num" x="115" y="680">~90%</text>
+  <text class="t-b" x="115" y="740">lower inference spend</text>
+  <rect class="bx" x="550" y="560" width="450" height="230" rx="14"/>
+  <text class="t-num" x="585" y="680">$0.30</text>
+  <text class="t-b" x="585" y="740">per million tokens, blended</text>
+  <rect class="bx" x="80" y="810" width="450" height="230" rx="14"/>
+  <text class="t-num" x="115" y="930">56</text>
+  <text class="t-b" x="115" y="990">B200 GPUs · 7 nodes × 8</text>
+  <rect class="bx" x="550" y="810" width="450" height="230" rx="14"/>
+  <text class="t-num" x="585" y="930">40B</text>
+  <text class="t-b" x="585" y="990">active of 754B params (MoE)</text>
+
+  <text class="t-h" x="80" y="1130" style="fill:var(--s-own)">Swipe for the architecture →</text>
+  <text class="t-s" x="80" y="1185">Figures as publicly reported (The Register and others, Nov 2026).</text>
+  <line class="rule" x1="80" y1="1250" x2="1000" y2="1250"/>
+  <text class="t-foot" x="80" y="1295">github.com/amarpai/glm-self-hosting-blueprint</text>
+  <text class="t-foot" x="1000" y="1295" text-anchor="end">1 / 7</text>
+</svg>
+<figcaption><b>Slide 1, cover.</b> Revolut reportedly cut AI coding inference spend about 90% by self-hosting GLM-5.3 on 56 B200 GPUs, at about $0.30 per million tokens.</figcaption>
+</figure>
+
+<!-- ============ SLIDE 2: BUSINESS CONTEXT ============ -->
+<figure id="slide-2">
+<svg viewBox="0 0 1080 1350" role="img" aria-labelledby="s2t">
+  <title id="s2t">Business context of the self-hosted GLM platform</title>
+  <rect class="s-bg" width="1080" height="1350"/>
+  <text class="t-eye" x="80" y="130">01 · BUSINESS CONTEXT</text>
+  <text class="t-title" x="80" y="205">Why self-host at all</text>
+
+  <rect class="ext" x="80" y="260" width="400" height="140" rx="14"/>
+  <text class="t-lab" x="110" y="300" style="fill:var(--s-ext)">BEFORE</text>
+  <text class="t-hs" x="110" y="340">Hosted coding assistants</text>
+  <text class="t-s" x="110" y="377">Bill grows with every token</text>
+  <line class="ln" x1="495" y1="330" x2="583" y2="330" marker-end="url(#ah)"/>
+  <rect class="own" x="600" y="260" width="400" height="140" rx="14"/>
+  <text class="t-lab" x="630" y="300" style="fill:var(--s-own)">AFTER</text>
+  <text class="t-hs" x="630" y="340">Own GPUs + open weights</text>
+  <text class="t-s" x="630" y="377">Fixed cost, ~$0.30 / M tokens</text>
+
+  <text class="t-lab" x="80" y="470">WHO IT SERVES</text>
+  <!-- stakeholders -->
+  <rect class="bx" x="80" y="495" width="320" height="150" rx="14"/>
+  <text class="t-h" x="110" y="545">2,000 engineers</text>
+  <text class="t-b" x="110" y="585">IDE + coding agents</text>
+  <text class="t-b" x="110" y="620">Fast, accurate code</text>
+  <rect class="bx" x="680" y="495" width="320" height="150" rx="14"/>
+  <text class="t-h" x="710" y="545">Finance</text>
+  <text class="t-b" x="710" y="585">Predictable spend</text>
+  <text class="t-b" x="710" y="620">Tracks $ per M tokens</text>
+  <rect class="bx" x="80" y="865" width="320" height="150" rx="14"/>
+  <text class="t-h" x="110" y="915">Security</text>
+  <text class="t-b" x="110" y="955">Code stays on</text>
+  <text class="t-b" x="110" y="990">owned infrastructure</text>
+  <rect class="bx" x="680" y="865" width="320" height="150" rx="14"/>
+  <text class="t-h" x="710" y="915">Platform team</text>
+  <text class="t-b" x="710" y="955">Runs GPUs + serving</text>
+  <text class="t-b" x="710" y="990">Upgrades 5.1 → 5.3</text>
+
+  <line class="ln-own" x1="400" y1="620" x2="440" y2="680"/>
+  <line class="ln-own" x1="680" y1="620" x2="640" y2="680"/>
+  <line class="ln-own" x1="400" y1="890" x2="440" y2="830"/>
+  <line class="ln-own" x1="680" y1="890" x2="640" y2="830"/>
+  <rect class="own" x="380" y="680" width="320" height="150" rx="14"/>
+  <text class="t-h" x="540" y="745" text-anchor="middle">Self-hosted</text>
+  <text class="t-h" x="540" y="785" text-anchor="middle">GLM platform</text>
+
+  <line class="ln" x1="540" y1="1070" x2="540" y2="840" marker-end="url(#ah)"/>
+  <text class="t-lab" x="80" y="1060">SUPPLIERS</text>
+  <rect class="bx" x="80" y="1080" width="293" height="120" rx="14"/>
+  <text class="t-hs" x="105" y="1130">NVIDIA B200</text>
+  <text class="t-s" x="105" y="1170">Hardware, 56 GPUs</text>
+  <rect class="bx" x="393" y="1080" width="294" height="120" rx="14"/>
+  <text class="t-hs" x="418" y="1130">GLM open weights</text>
+  <text class="t-s" x="418" y="1170">Model by Z.ai</text>
+  <rect class="ext" x="707" y="1080" width="293" height="120" rx="14"/>
+  <text class="t-hs" x="732" y="1130">Hosted vision API</text>
+  <text class="t-s" x="732" y="1170">Images only, pay per use</text>
+
+  <line class="rule" x1="80" y1="1250" x2="1000" y2="1250"/>
+  <text class="t-foot" x="80" y="1295">github.com/amarpai/glm-self-hosting-blueprint</text>
+  <text class="t-foot" x="1000" y="1295" text-anchor="end">2 / 7</text>
+</svg>
+<figcaption><b>Slide 2, business context.</b> The move goes from hosted assistants billed per token to owned GPUs at a fixed cost. The platform serves engineers, finance, security and the platform team, and depends on NVIDIA hardware, GLM open weights and a hosted vision API for images.</figcaption>
+</figure>
+
+<!-- ============ SLIDE 3: DATA FLOW ============ -->
+<figure id="slide-3">
+<svg viewBox="0 0 1080 1350" role="img" aria-labelledby="s3t">
+  <title id="s3t">Data flow of one coding request</title>
+  <rect class="s-bg" width="1080" height="1350"/>
+  <text class="t-eye" x="80" y="130">02 · DATA FLOW</text>
+  <text class="t-title" x="80" y="205">How one request travels</text>
+
+  <!-- steps -->
+  <g>
+    <rect class="bx" x="80" y="260" width="560" height="100" rx="14"/>
+    <circle class="dot" cx="128" cy="310" r="24"/><text class="t-n" x="128" y="319" text-anchor="middle">1</text>
+    <text class="t-h" x="172" y="303">IDE / coding agent</text>
+    <text class="t-s" x="172" y="337">Sends prompt + repo context</text>
+  </g>
+  <line class="ln" x1="360" y1="360" x2="360" y2="404" marker-end="url(#ah)"/>
+  <g>
+    <rect class="bx" x="80" y="410" width="560" height="100" rx="14"/>
+    <circle class="dot" cx="128" cy="460" r="24"/><text class="t-n" x="128" y="469" text-anchor="middle">2</text>
+    <text class="t-h" x="172" y="453">API gateway</text>
+    <text class="t-s" x="172" y="487">Auth · quotas · audit log</text>
+  </g>
+  <line class="ln" x1="360" y1="510" x2="360" y2="554" marker-end="url(#ah)"/>
+  <g>
+    <rect class="bx" x="80" y="560" width="560" height="100" rx="14"/>
+    <circle class="dot" cx="128" cy="610" r="24"/><text class="t-n" x="128" y="619" text-anchor="middle">3</text>
+    <text class="t-h" x="172" y="603">Model router</text>
+    <text class="t-s" x="172" y="637">Does it contain an image?</text>
+  </g>
+  <line class="ln-ext" x1="640" y1="610" x2="714" y2="610" marker-end="url(#ah-ext)"/>
+  <text class="t-tag" x="677" y="595" text-anchor="middle" style="fill:var(--s-ext)">yes</text>
+  <rect class="ext" x="720" y="560" width="280" height="100" rx="14"/>
+  <text class="t-hs" x="745" y="603">Hosted vision</text>
+  <text class="t-s" x="745" y="637">Rare, pay per use</text>
+
+  <line class="ln-own" x1="360" y1="660" x2="360" y2="704" marker-end="url(#ah-own)"/>
+  <text class="t-tag" x="378" y="690" style="fill:var(--s-own)">no · text &amp; code (most traffic)</text>
+  <g>
+    <rect class="own" x="80" y="710" width="560" height="100" rx="14"/>
+    <circle class="dot" cx="128" cy="760" r="24"/><text class="t-n" x="128" y="769" text-anchor="middle">4</text>
+    <text class="t-h" x="172" y="753">Cache-aware load balancer</text>
+    <text class="t-s" x="172" y="787">hash(session) → same replica</text>
+  </g>
+  <line class="ln-own" x1="360" y1="810" x2="360" y2="854" marker-end="url(#ah-own)"/>
+  <g>
+    <rect class="own" x="80" y="860" width="560" height="100" rx="14"/>
+    <circle class="dot" cx="128" cy="910" r="24"/><text class="t-n" x="128" y="919" text-anchor="middle">5</text>
+    <text class="t-h" x="172" y="903">GLM-5.3 replica · 8×B200</text>
+    <text class="t-s" x="172" y="937">Prefix-cache hit skips prefill</text>
+  </g>
+  <line class="ln-own" x1="360" y1="960" x2="360" y2="1004" marker-end="url(#ah-own)"/>
+  <g>
+    <rect class="bx" x="80" y="1010" width="560" height="100" rx="14"/>
+    <circle class="dot" cx="128" cy="1060" r="24"/><text class="t-n" x="128" y="1069" text-anchor="middle">6</text>
+    <text class="t-h" x="172" y="1053">Tokens stream back</text>
+    <text class="t-s" x="172" y="1087">Through the gateway to the IDE</text>
+  </g>
+
+  <!-- observability -->
+  <rect class="bx" x="720" y="860" width="280" height="250" rx="14"/>
+  <text class="t-hs" x="745" y="905">Observability</text>
+  <text class="t-s" x="745" y="950">$ per M tokens</text>
+  <text class="t-s" x="745" y="990">TTFT p50 / p95</text>
+  <text class="t-s" x="745" y="1030">Cache-hit rate</text>
+  <text class="t-s" x="745" y="1070">GPU utilisation</text>
+  <path class="ln-dash" d="M640 460 H1040 V985 H1006" marker-end="url(#ah)"/>
+  <line class="ln-dash" x1="640" y1="910" x2="714" y2="910" marker-end="url(#ah)"/>
+  <text class="t-s" x="720" y="1160">- - -  metrics &amp; cost signals</text>
+
+  <line class="rule" x1="80" y1="1250" x2="1000" y2="1250"/>
+  <text class="t-foot" x="80" y="1295">github.com/amarpai/glm-self-hosting-blueprint</text>
+  <text class="t-foot" x="1000" y="1295" text-anchor="end">3 / 7</text>
+</svg>
+<figcaption><b>Slide 3, data flow.</b> A request goes from the IDE through the gateway to the model router. Image requests go to a hosted vision model. Text and code go through a cache-aware load balancer to a GLM-5.3 replica, and tokens stream back. The gateway and replicas report cost, latency and cache-hit metrics.</figcaption>
+</figure>
+
+<!-- ============ SLIDE 4: PROCESSING PIPELINE ============ -->
+<figure id="slide-4">
+<svg viewBox="0 0 1080 1350" role="img" aria-labelledby="s4t">
+  <title id="s4t">Processing pipeline inside one GLM-5.3 replica</title>
+  <rect class="s-bg" width="1080" height="1350"/>
+  <text class="t-eye" x="80" y="130">03 · PROCESSING PIPELINE</text>
+  <text class="t-title" x="80" y="205">Inside one GLM-5.3 replica</text>
+
+  <!-- stages -->
+  <rect class="bx" x="140" y="260" width="440" height="100" rx="14"/>
+  <text class="t-h" x="170" y="303">Tokenize</text>
+  <text class="t-s" x="170" y="337">Context capped at 256K</text>
+  <line class="ln" x1="360" y1="360" x2="360" y2="394" marker-end="url(#ah)"/>
+  <rect class="bx" x="140" y="400" width="440" height="100" rx="14" style="stroke:var(--s-amber)"/>
+  <text class="t-h" x="170" y="443">Prefix-cache lookup</text>
+  <text class="t-s" x="170" y="477">Reuse KV of repeated context</text>
+  <line class="ln" x1="360" y1="500" x2="360" y2="534" marker-end="url(#ah)"/>
+  <text class="t-tag" x="372" y="525" style="fill:var(--s-muted)">miss</text>
+  <rect class="bx" x="140" y="540" width="440" height="100" rx="14"/>
+  <text class="t-h" x="170" y="583">Prefill</text>
+  <text class="t-s" x="170" y="617">Compute KV for new tokens only</text>
+  <line class="ln" x1="360" y1="640" x2="360" y2="674" marker-end="url(#ah)"/>
+  <rect class="own" x="140" y="680" width="440" height="100" rx="14"/>
+  <text class="t-h" x="170" y="723">MoE decode · 78 layers</text>
+  <text class="t-s" x="170" y="757">Each token picks its experts</text>
+  <line class="ln" x1="360" y1="780" x2="360" y2="814" marker-end="url(#ah)"/>
+  <rect class="bx" x="140" y="820" width="440" height="100" rx="14"/>
+  <text class="t-h" x="170" y="863">Multi-token prediction</text>
+  <text class="t-s" x="170" y="897">MTP layer drafts tokens ahead</text>
+  <line class="ln" x1="360" y1="920" x2="360" y2="954" marker-end="url(#ah)"/>
+  <rect class="bx" x="140" y="960" width="440" height="100" rx="14"/>
+  <text class="t-h" x="170" y="1003">Detokenize &amp; stream</text>
+  <text class="t-s" x="170" y="1037">Tokens sent as generated</text>
+  <!-- cache-hit bypass -->
+  <path class="ln-amb" d="M140 450 H100 V730 H134" marker-end="url(#ah-amb)"/>
+  <text class="t-tag" x="72" y="595" text-anchor="middle" transform="rotate(-90 72 595)">cache hit · skip</text>
+
+  <!-- MoE panel -->
+  <text class="t-lab" x="640" y="285">256 ROUTED EXPERTS / LAYER</text>
+  <g id="experts"></g>
+  <text class="t-b" x="640" y="738"><tspan class="f-amb">■</tspan> 8 picked per token</text>
+  <text class="t-b" x="640" y="774"><tspan class="f-own">■</tspan> + 1 shared expert</text>
+  <text class="t-b" x="640" y="810">≈40B of 754B params active</text>
+
+  <!-- memory panel -->
+  <text class="t-lab" x="640" y="875">MEMORY · ONE 8-GPU NODE</text>
+  <rect class="w-mut" x="640" y="895" width="360" height="56" rx="8"/>
+  <rect class="w-ext" x="640" y="895" width="95" height="56" rx="8"/>
+  <text class="t-s" x="640" y="992"><tspan class="f-ext">■</tspan> FP4 weights ≈ 380 GB</text>
+  <text class="t-s" x="640" y="1028"><tspan style="fill:var(--s-line)">■</tspan> KV cache + runtime</text>
+  <text class="t-s" x="640" y="1064">≈6–26 GB KV per user</text>
+  <text class="t-s" x="640" y="1100">≈1.4 TB HBM per node</text>
+
+  <text class="t-s" x="80" y="1170">Model specs from NVIDIA's GLM-5.3 model card; memory figures as reported.</text>
+  <line class="rule" x1="80" y1="1250" x2="1000" y2="1250"/>
+  <text class="t-foot" x="80" y="1295">github.com/amarpai/glm-self-hosting-blueprint</text>
+  <text class="t-foot" x="1000" y="1295" text-anchor="end">4 / 7</text>
+</svg>
+<figcaption><b>Slide 4, processing pipeline.</b> Inside one replica: tokenize, prefix-cache lookup (a hit skips prefill), prefill, Mixture-of-Experts decode across 78 layers, multi-token prediction, then streaming. Each token picks 8 of 256 experts plus 1 shared expert, so about 40B of 754B parameters are active. FP4 weights take about 380 GB of the node's memory, and the rest holds KV cache.</figcaption>
+</figure>
+
+<!-- ============ SLIDE 5: SYSTEM ARCHITECTURE ============ -->
+<figure id="slide-5">
+<svg viewBox="0 0 1080 1350" role="img" aria-labelledby="s5t">
+  <title id="s5t">System architecture of the self-hosted deployment</title>
+  <rect class="s-bg" width="1080" height="1350"/>
+  <text class="t-eye" x="80" y="130">04 · SYSTEM ARCHITECTURE</text>
+  <text class="t-title" x="80" y="205">The deployment, end to end</text>
+
+  <rect class="bx" x="80" y="250" width="920" height="80" rx="14"/>
+  <text class="t-h" x="540" y="300" text-anchor="middle">Engineers' IDEs &amp; coding agents</text>
+  <line class="ln" x1="540" y1="330" x2="540" y2="364" marker-end="url(#ah)"/>
+  <rect class="bx" x="80" y="370" width="920" height="80" rx="14"/>
+  <text class="t-h" x="540" y="420" text-anchor="middle">API gateway · auth · quotas · audit</text>
+  <line class="ln" x1="350" y1="450" x2="350" y2="484" marker-end="url(#ah)"/>
+  <rect class="bx" x="80" y="490" width="540" height="80" rx="14"/>
+  <text class="t-h" x="350" y="540" text-anchor="middle">Model router</text>
+  <line class="ln-ext" x1="620" y1="530" x2="694" y2="530" marker-end="url(#ah-ext)"/>
+  <rect class="ext" x="700" y="490" width="300" height="80" rx="14"/>
+  <text class="t-hs" x="850" y="525" text-anchor="middle">Hosted vision API</text>
+  <text class="t-s" x="850" y="555" text-anchor="middle">images only</text>
+  <line class="ln-own" x1="350" y1="570" x2="350" y2="604" marker-end="url(#ah-own)"/>
+  <rect class="own" x="80" y="610" width="540" height="80" rx="14"/>
+  <text class="t-h" x="350" y="660" text-anchor="middle">Prefix-cache-aware LB</text>
+  <rect class="bx" x="700" y="610" width="300" height="80" rx="14"/>
+  <text class="t-hs" x="850" y="645" text-anchor="middle">Observability</text>
+  <text class="t-s" x="850" y="675" text-anchor="middle">$/M · TTFT · cache hits</text>
+  <line class="ln-own" x1="350" y1="690" x2="350" y2="734" marker-end="url(#ah-own)"/>
+
+  <!-- cluster -->
+  <rect x="80" y="740" width="920" height="330" rx="16" fill="none" stroke="var(--s-own)" stroke-width="2" stroke-dasharray="3 6"/>
+  <text class="t-lab" x="105" y="780" style="fill:var(--s-own)">GPU CLUSTER · 7 NODES × 8 B200 = 56 GPUs</text>
+  <g id="nodes"></g>
+
+  <line class="ln" x1="350" y1="1110" x2="350" y2="1076" marker-end="url(#ah)"/>
+  <rect class="bx" x="80" y="1110" width="540" height="100" rx="14"/>
+  <text class="t-hs" x="105" y="1152">Model weights store</text>
+  <text class="t-s" x="105" y="1188">GLM-5.3 · FP4 ≈ 380 GB per replica</text>
+  <rect class="bx" x="660" y="1110" width="340" height="100" rx="14"/>
+  <text class="t-hs" x="685" y="1152">Each node = 1 replica</text>
+  <text class="t-s" x="685" y="1188">8-way tensor parallel</text>
+
+  <line class="rule" x1="80" y1="1250" x2="1000" y2="1250"/>
+  <text class="t-foot" x="80" y="1295">github.com/amarpai/glm-self-hosting-blueprint</text>
+  <text class="t-foot" x="1000" y="1295" text-anchor="end">5 / 7</text>
+</svg>
+<figcaption><b>Slide 5, system architecture.</b> IDEs connect through an API gateway to a model router, which sends images to a hosted vision API and text to a prefix-cache-aware load balancer. That feeds 7 GPU nodes of 8 B200s each. Every node runs one 8-way tensor-parallel GLM-5.3 replica loaded from a shared FP4 weights store.</figcaption>
+</figure>
+
+<!-- ============ SLIDE 6: COST LEVERS ============ -->
+<figure id="slide-6">
+<svg viewBox="0 0 1080 1350" role="img" aria-labelledby="s6t">
+  <title id="s6t">Where the savings come from: five cost levers</title>
+  <rect class="s-bg" width="1080" height="1350"/>
+  <text class="t-eye" x="80" y="130">05 · WHERE THE SAVINGS COME FROM</text>
+  <text class="t-title" x="80" y="205">Five cost levers</text>
+
+  <text class="t-lab" x="80" y="270">INFERENCE SPEND, INDEXED (BEFORE = 100)</text>
+  <text class="t-s" x="80" y="315">Hosted APIs</text>
+  <rect class="w-ext" x="80" y="330" width="920" height="44" rx="6"/>
+  <text class="t-tag" x="980" y="360" text-anchor="end" style="fill:var(--s-bg)">100</text>
+  <text class="t-s" x="80" y="420">Self-hosted GLM</text>
+  <rect class="w-own" x="80" y="435" width="92" height="44" rx="6"/>
+  <text class="t-tag" x="188" y="465" style="fill:var(--s-own)">≈10 · reported ~90% cut in under a year</text>
+
+  <g>
+    <line class="rule" x1="80" y1="530" x2="1000" y2="530"/>
+    <text class="t-h" x="80" y="585">FP4 weights</text>
+    <text class="t-b" x="80" y="625">One replica fits on one 8-GPU node</text>
+    <rect x="780" y="560" width="220" height="44" rx="22" fill="none" stroke="var(--s-amber)" stroke-width="2"/>
+    <text class="t-tag" x="890" y="589" text-anchor="middle">fewer GPUs</text>
+  </g>
+  <g>
+    <line class="rule" x1="80" y1="665" x2="1000" y2="665"/>
+    <text class="t-h" x="80" y="720">256K context cap (not 1M)</text>
+    <text class="t-b" x="80" y="760">Less KV memory per user, faster TTFT</text>
+    <rect x="780" y="695" width="220" height="44" rx="22" fill="none" stroke="var(--s-amber)" stroke-width="2"/>
+    <text class="t-tag" x="890" y="724" text-anchor="middle">more users/GPU</text>
+  </g>
+  <g>
+    <line class="rule" x1="80" y1="800" x2="1000" y2="800"/>
+    <text class="t-h" x="80" y="855">Sticky, cache-aware routing</text>
+    <text class="t-b" x="80" y="895">Repeated repo context skips prefill</text>
+    <rect x="780" y="830" width="220" height="44" rx="22" fill="none" stroke="var(--s-amber)" stroke-width="2"/>
+    <text class="t-tag" x="890" y="859" text-anchor="middle">more throughput</text>
+  </g>
+  <g>
+    <line class="rule" x1="80" y1="935" x2="1000" y2="935"/>
+    <text class="t-h" x="80" y="990">MoE: 40B of 754B active</text>
+    <text class="t-b" x="80" y="1030">Big-model quality, small-model compute</text>
+    <rect x="780" y="965" width="220" height="44" rx="22" fill="none" stroke="var(--s-amber)" stroke-width="2"/>
+    <text class="t-tag" x="890" y="994" text-anchor="middle">cheaper tokens</text>
+  </g>
+  <g>
+    <line class="rule" x1="80" y1="1070" x2="1000" y2="1070"/>
+    <text class="t-h" x="80" y="1125">Hybrid routing</text>
+    <text class="t-b" x="80" y="1165">Vision goes to a paid API only when needed</text>
+    <rect x="780" y="1100" width="220" height="44" rx="22" fill="none" stroke="var(--s-amber)" stroke-width="2"/>
+    <text class="t-tag" x="890" y="1129" text-anchor="middle">pay per image</text>
+  </g>
+
+  <line class="rule" x1="80" y1="1250" x2="1000" y2="1250"/>
+  <text class="t-foot" x="80" y="1295">github.com/amarpai/glm-self-hosting-blueprint</text>
+  <text class="t-foot" x="1000" y="1295" text-anchor="end">6 / 7</text>
+</svg>
+<figcaption><b>Slide 6, cost levers.</b> Spend reportedly fell from 100 to about 10 on an indexed scale. The five levers: FP4 weights, a 256K context cap, sticky cache-aware routing, a Mixture-of-Experts model with 40B of 754B parameters active, and hybrid routing for vision.</figcaption>
+</figure>
+
+<!-- ============ SLIDE 7: PLAYBOOK ============ -->
+<figure id="slide-7">
+<svg viewBox="0 0 1080 1350" role="img" aria-labelledby="s7t">
+  <title id="s7t">Playbook: how other companies can copy the architecture</title>
+  <rect class="s-bg" width="1080" height="1350"/>
+  <text class="t-eye" x="80" y="130">06 · YOUR PLAYBOOK</text>
+  <text class="t-title" x="80" y="205">How your company can copy it</text>
+
+  <g id="steps"></g>
+
+  <rect class="own" x="80" y="1060" width="920" height="150" rx="16"/>
+  <text class="t-hs" x="115" y="1110">Architecture, router &amp; cost calculator:</text>
+  <text class="t-url" x="115" y="1165">github.com/amarpai/glm-self-hosting-blueprint</text>
+
+  <line class="rule" x1="80" y1="1250" x2="1000" y2="1250"/>
+  <text class="t-foot" x="80" y="1295">Figures as publicly reported · configs illustrative</text>
+  <text class="t-foot" x="1000" y="1295" text-anchor="end">7 / 7</text>
+</svg>
+<figcaption><b>Slide 7, playbook.</b> Six steps for other companies: do the maths, pick precision first, cap context, engineer for cache hits, route rather than replace, and measure cost, latency and developer satisfaction together. Links to the GitHub repo.</figcaption>
+</figure>
+
+<section class="sources">
+  <h2>Sources</h2>
+  <ul>
+    <li><a href="https://www.theregister.com/ai-and-ml/2026/11/03/british-fintech-revolut-slashes-ai-coding-costs-10x-by-cutting-out-claude-and-going-self-hosted/5307345">The Register: Revolut slashes AI coding costs 10x</a></li>
+    <li><a href="https://lucaberton.com/blog/revolut-self-hosted-glm-b200-ai-engineer-nyc-2026/">Luca Berton: Revolut self-hosted GLM, 56 B200s at $0.30/M tokens</a></li>
+    <li><a href="https://www.faradaymachines.com/revolut-self-hosted-glm-case-study/">Faraday Machines: case study</a></li>
+    <li><a href="https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3">NVIDIA NIM: GLM-5.3 model card</a></li>
+  </ul>
+  <p class="muted">Revolut's numbers come from press and conference coverage. The diagrams show a reference design, not Revolut's internal code.</p>
+</section>
+</div>
+
+<script>
+// Draw the repeated marks (expert grid, GPU nodes, playbook steps) from data.
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+// 256 experts as a 16 x 16 grid; 8 lit for this token.
+(function () {
+  const g = document.getElementById("experts");
+  const lit = new Set([5, 38, 71, 99, 140, 177, 203, 236]);
+  for (let i = 0; i < 256; i++) {
+    const r = Math.floor(i / 16), c = i % 16;
+    g.appendChild(el("rect", { x: 640 + c * 22.5, y: 310 + r * 22.5, width: 18, height: 18, rx: 3,
+      class: lit.has(i) ? "ex-on" : "ex" }));
+  }
+  g.appendChild(el("rect", { x: 640, y: 310 + 16 * 22.5 + 4, width: 358, height: 18, rx: 3, class: "ex-sh" }));
+})();
+// 7 nodes x 8 GPUs.
+(function () {
+  const g = document.getElementById("nodes");
+  const w = 116, gap = (870 - 7 * w) / 6;
+  for (let n = 0; n < 7; n++) {
+    const x = 105 + n * (w + gap);
+    g.appendChild(el("rect", { x, y: 805, width: w, height: 240, rx: 12, class: "own" }));
+    g.appendChild(el("text", { x: x + w / 2, y: 845, "text-anchor": "middle", class: "t-hs" }, "N" + (n + 1)));
+    for (let k = 0; k < 8; k++) {
+      const cx = x + 24 + (k % 2) * 40, cy = 868 + Math.floor(k / 2) * 34;
+      g.appendChild(el("rect", { x: cx, y: cy, width: 28, height: 24, rx: 4, class: "gpu" }));
+    }
+    g.appendChild(el("text", { x: x + w / 2, y: 1025, "text-anchor": "middle", class: "t-s" }, "TP=8"));
+  }
+})();
+// Playbook steps.
+(function () {
+  const g = document.getElementById("steps");
+  const steps = [
+    ["Do the maths first", "Self-hosting is a fixed cost. It wins at high, steady volume."],
+    ["Pick precision before hardware", "FP4 decides how many GPUs one replica needs."],
+    ["Cap context to real usage", "Size for your p99 prompt, not the spec sheet."],
+    ["Engineer for cache hits", "Sticky routing + prefix caching for agent traffic."],
+    ["Route, don't rip and replace", "Keep a hosted model for vision and fallback."],
+    ["Measure what matters", "$ per M tokens, TTFT and developer happiness."],
+  ];
+  steps.forEach(([h, b], i) => {
+    const y = 260 + i * 130;
+    g.appendChild(el("circle", { cx: 112, cy: y + 30, r: 26, class: "dot" }));
+    g.appendChild(el("text", { x: 112, y: y + 39, "text-anchor": "middle", class: "t-n" }, String(i + 1)));
+    g.appendChild(el("text", { x: 165, y: y + 30, class: "t-h" }, h));
+    g.appendChild(el("text", { x: 165, y: y + 70, class: "t-b" }, b));
+  });
+})();
+</script>
