@@ -49,7 +49,7 @@ Why each piece matters:
    pay per token only for the rare vision request.
 5. **Measure cost per million tokens**, not GPU utilisation alone.
 
-## Architecture diagrams (LinkedIn-ready)
+## Architecture diagrams
 
 [`docs/architecture.html`](docs/architecture.html) has seven SVG diagrams: business context,
 data flow, processing pipeline, system architecture, cost levers and an adoption playbook.
